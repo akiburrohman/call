@@ -7,7 +7,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIO(server);
 
-app.use(express.static('public'));
+app.use(express.static(__dirname));
 
 io.on('connection', socket => {
   socket.on('join', room => {
