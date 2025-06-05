@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -12,25 +11,40 @@
       align-items: center;
       height: 100vh;
       font-family: sans-serif;
+      flex-direction: column;
     }
-    button {
+    input, button {
       padding: 12px 24px;
       font-size: 18px;
-      background: #3a3a3a;
+      margin: 8px;
       border: none;
+      border-radius: 6px;
+    }
+    input {
+      width: 200px;
+      background: #333;
+      color: white;
+    }
+    button {
+      background: #3a3a3a;
       color: white;
       cursor: pointer;
-      border-radius: 6px;
     }
   </style>
 </head>
 <body>
-  <button onclick="startCall()">Start a Call</button>
+  <h2>Enter a Room ID</h2>
+  <input type="text" id="room-input" placeholder="e.g. room123">
+  <button onclick="joinRoom()">Join Room</button>
 
   <script>
-    function startCall() {
-      const room = 'room-' + Math.random().toString(36).substr(2, 5);
-      window.location.href = '/room/' + room;
+    function joinRoom() {
+      const room = document.getElementById('room-input').value.trim();
+      if (room) {
+        window.location.href = '/room/' + room;
+      } else {
+        alert("Please enter a room ID.");
+      }
     }
   </script>
 </body>
