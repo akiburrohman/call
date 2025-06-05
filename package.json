@@ -1,7 +1,8 @@
 
 {
-  "name": "simple-video-call",
+  "name": "video-call-app",
   "version": "1.0.0",
+  "description": "Simple video call app with WebRTC",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

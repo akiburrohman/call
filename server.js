@@ -1,6 +1,7 @@
 
 const express = require('express');
 const http = require('http');
+const path = require('path');
 const socketIO = require('socket.io');
 
 const app = express();
@@ -9,15 +10,31 @@ const io = socketIO(server);
 
 app.use(express.static(__dirname));
 
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/room/:room', (req, res) => {
+  res.sendFile(path.join(__dirname, 'room.html'));
+});
+
 io.on('connection', socket => {
   socket.on('join', room => {
     socket.join(room);
     socket.to(room).emit('joined');
   });
 
-  socket.on('offer', data => socket.broadcast.emit('offer', data));
-  socket.on('answer', data => socket.broadcast.emit('answer', data));
-  socket.on('ice-candidate', data => socket.broadcast.emit('ice-candidate', data));
+  socket.on('offer', (data, room) => {
+    socket.to(room).emit('offer', data);
+  });
+
+  socket.on('answer', (data, room) => {
+    socket.to(room).emit('answer', data);
+  });
+
+  socket.on('ice-candidate', (data, room) => {
+    socket.to(room).emit('ice-candidate', data);
+  });
 });
 
 const PORT = process.env.PORT || 3000;
