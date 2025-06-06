@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neon Video Call</title>
+  <style>
+    body {
+      background-color: #0f0f0f;
+      color: #00ffff;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    video {
+      width: 45%;
+      margin: 10px;
+      border: 2px solid #00ffff;
+      border-radius: 10px;
+    }
+    .controls {
+      margin-top: 10px;
+    }
+    button, input {
+      background-color: #1f1f1f;
+      border: 1px solid #00ffff;
+      color: #00ffff;
+      padding: 10px;
+      margin: 5px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #00ffff;
+      color: #0f0f0f;
+    }
+  </style>
+</head>
+<body>
+  <h1>Neon Video Call</h1>
+  <input type="text" id="roomKey" placeholder="Enter Room Key" />
+  <button onclick="joinCall()">Join Call</button>
+  <div>
+    <video id="localVideo" autoplay muted playsinline></video>
+    <video id="remoteVideo" autoplay playsinline></video>
+  </div>
+  <div class="controls">
+    <button onclick="toggleCamera()">Toggle Camera</button>
+    <button onclick="toggleMic()">Toggle Mic</button>
+    <button onclick="endCall()">End Call</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let localStream;
+    let remoteStream;
+    let peerConnection;
+    let roomKey;
+
+    const servers = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+      ]
+    };
+
+    const localVideo = document.getElementById('localVideo');
+    const remoteVideo = document.getElementById('remoteVideo');
+
+    async function joinCall() {
+      roomKey = document.getElementById('roomKey').value;
+      if (!roomKey) return alert('Enter room key first');
+
+      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      localVideo.srcObject = localStream;
+
+      socket.emit('join', roomKey);
+    }
+
+    socket.on('joined', async () => {
+      peerConnection = new RTCPeerConnection(servers);
+      setupPeerConnection();
+
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+      socket.emit('offer', offer, roomKey);
+    });
+
+    socket.on('offer', async (offer) => {
+      if (!peerConnection) {
+        peerConnection = new RTCPeerConnection(servers);
+        setupPeerConnection();
+      }
+
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+      socket.emit('answer', answer, roomKey);
+    });
+
+    socket.on('answer', async (answer) => {
+      if (!peerConnection) return console.error('peerConnection not ready');
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    });
+
+    socket.on('candidate', async (candidate) => {
+      if (!peerConnection) return console.error('peerConnection not ready');
+      try {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (e) {
+        console.error('Error adding received ICE candidate', e);
+      }
+    });
+
+    function setupPeerConnection() {
+      localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('candidate', event.candidate, roomKey);
+        }
+      };
+
+      peerConnection.ontrack = (event) => {
+        if (!remoteStream) {
+          remoteStream = new MediaStream();
+          remoteVideo.srcObject = remoteStream;
+        }
+        remoteStream.addTrack(event.track);
+      };
+    }
+
+    function toggleCamera() {
+      const videoTrack = localStream.getVideoTracks()[0];
+      videoTrack.enabled = !videoTrack.enabled;
+    }
+
+    function toggleMic() {
+      const audioTrack = localStream.getAudioTracks()[0];
+      audioTrack.enabled = !audioTrack.enabled;
+    }
+
+    function endCall() {
+      if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+      }
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+      }
+      if (remoteStream) {
+        remoteStream.getTracks().forEach(track => track.stop());
+        remoteStream = null;
+        remoteVideo.srcObject = null;
+      }
+      localVideo.srcObject = null;
+    }
+  </script>
+</body>
+</html>
